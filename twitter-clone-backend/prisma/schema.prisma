@@ -1,0 +1,64 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  displayName  String?   // Smiya l-ha9i9iya (Ex: Hamza Dev)
+  avatar       String?   // URL d l-image
+  bio          String?
+  vacationMode Boolean   @default(false) // <-- Bonus: Mode Vacances
+  spotifyToken String?   // <-- Bonus: Token Spotify
+
+  tweets       Tweet[]
+  likes        Like[]
+
+  // Suivi (Followers/Following) - Relation N:N
+  followedBy   Follows[] @relation("followedBy")
+  following    Follows[] @relation("following")
+}
+
+model Tweet {
+  id        String   @id @default(uuid())
+  content   String
+  image     String?  // <-- Pour les images
+  createdAt DateTime @default(now())
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+
+  likes     Like[]
+
+  // Système de Réponse et Retweet (Tweet dans un Tweet)
+  parentId  String?
+  parent    Tweet?   @relation("ParentTweet", fields: [parentId], references: [id])
+  replies   Tweet[]  @relation("ParentTweet")
+
+  isRetweet Boolean  @default(false)
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  follower    User   @relation("following", fields: [followerId], references: [id])
+  following   User   @relation("followedBy", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId]) // Ma t9drch t-followé wahed 2 merrat
+}
+
+model Like {
+  userId  String
+  tweetId String
+  user    User   @relation(fields: [userId], references: [id])
+  tweet   Tweet  @relation(fields: [tweetId], references: [id])
+
+  @@id([userId, tweetId])
+}
