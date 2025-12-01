@@ -1,139 +1,371 @@
-// src/pages/Profile.tsx
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import axios from 'axios'
-import { ArrowLeft, Calendar, MapPin, Music, Palmtree } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { db, auth } from '../firebase'
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+  onSnapshot,
+  addDoc,
+  deleteDoc,
+  orderBy,
+} from 'firebase/firestore'
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Music,
+  Palmtree,
+  MessageCircle,
+  Repeat,
+  Heart,
+  Share,
+  Mail,
+} from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-const API_URL = 'http://localhost:3001'
-
 export const Profile = () => {
-  const { username } = useParams()
-  const [profile, setProfile] = useState<any>(null)
+  const { userId } = useParams()
+  const navigate = useNavigate()
+
+  // Data States
+  const [userTweets, setUserTweets] = useState<any[]>([])
+  const [userInfo, setUserInfo] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Logic States (Follow/Chat)
   const [isFollowing, setIsFollowing] = useState(false)
-  const currentUserId = localStorage.getItem('userId')
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
 
-  // Pour le mode vacances
-  const isMyProfile = profile && profile.id === currentUserId
+  // Settings States
+  const [spotifySong, setSpotifySong] = useState('')
+  const [isEditingSpotify, setIsEditingSpotify] = useState(false)
+  const [vacationMode, setVacationMode] = useState(false)
 
+  const currentUser = auth.currentUser
+  const isMyProfile = currentUser?.uid === userId
+
+  // 1. INIT & CHARGEMENT
   useEffect(() => {
-    fetchProfile()
-  }, [username])
+    if (!userId) return
 
-  const fetchProfile = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/users/${username}`)
-      setProfile(res.data)
-    } catch (e) {
-      console.error(e)
+    // A. Auto-save si c'est moi
+    if (isMyProfile && currentUser) {
+      setDoc(
+        doc(db, 'users', userId),
+        {
+          name: currentUser.displayName,
+          photo: currentUser.photoURL,
+          id: userId,
+          usernameSearch: currentUser.displayName?.toLowerCase().trim(),
+        },
+        { merge: true }
+      )
+    }
+
+    // B. Écouter Info User
+    const unsubUser = onSnapshot(doc(db, 'users', userId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        setUserInfo(data)
+        setSpotifySong(data.spotifySong || '')
+        setVacationMode(data.vacationMode || false)
+      } else {
+        setUserInfo({ name: 'Utilisateur', photo: null })
+      }
+      setLoading(false)
+    })
+
+    // C. Charger Tweets
+    const fetchTweets = async () => {
+      const q = query(collection(db, 'tweets'), where('authorId', '==', userId))
+      const snap = await getDocs(q)
+      const tweets = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any))
+      tweets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setUserTweets(tweets)
+    }
+    fetchTweets()
+
+    // D. Check Follow Status & Counts
+    if (currentUser) {
+      // Est-ce que je le suis ?
+      const qCheck = query(
+        collection(db, 'follows'),
+        where('followerId', '==', currentUser.uid),
+        where('followingId', '==', userId)
+      )
+      getDocs(qCheck).then((snap) => setIsFollowing(!snap.empty))
+
+      // Compteurs (Temps réel)
+      const unsubFollowers = onSnapshot(
+        query(collection(db, 'follows'), where('followingId', '==', userId)),
+        (s) => setFollowersCount(s.size)
+      )
+      const unsubFollowing = onSnapshot(
+        query(collection(db, 'follows'), where('followerId', '==', userId)),
+        (s) => setFollowingCount(s.size)
+      )
+
+      return () => {
+        unsubUser()
+        unsubFollowers()
+        unsubFollowing()
+      }
+    }
+
+    return () => unsubUser()
+  }, [userId, isMyProfile, currentUser])
+
+  // 2. FONCTION FOLLOW / UNFOLLOW
+  const handleFollow = async () => {
+    if (!currentUser || !userId) return
+    if (isFollowing) {
+      // Unfollow
+      const q = query(
+        collection(db, 'follows'),
+        where('followerId', '==', currentUser.uid),
+        where('followingId', '==', userId)
+      )
+      const snap = await getDocs(q)
+      snap.forEach(async (d) => await deleteDoc(doc(db, 'follows', d.id)))
+      setIsFollowing(false)
+    } else {
+      // Follow
+      await addDoc(collection(db, 'follows'), {
+        followerId: currentUser.uid,
+        followingId: userId,
+        timestamp: new Date(),
+      })
+      setIsFollowing(true)
     }
   }
 
-  const toggleVacation = async () => {
-    // Hack rapide: On envoie l'inverse de l'état actuel
-    // (Note: Faudrait creer une route PUT /users/:id pour faire ça propre)
-    alert('Mode Vacances activé ! (Simulation)')
-    setProfile({ ...profile, vacationMode: !profile.vacationMode })
+  // 3. FONCTION START CHAT (Message)
+  const startChat = async () => {
+    if (!currentUser || !userId || !userInfo) return
+    const chatId = [currentUser.uid, userId].sort().join('_')
+
+    // Créer la conversation si elle n'existe pas
+    await setDoc(
+      doc(db, 'chats', chatId),
+      {
+        users: [currentUser.uid, userId],
+        userNames: [currentUser.displayName, userInfo.name],
+        lastMessage: 'Nouvelle conversation',
+        timestamp: new Date(),
+      },
+      { merge: true }
+    )
+
+    navigate(`/messages/${chatId}`)
   }
 
-  if (!profile) return <div className="p-10 text-center">Chargement...</div>
+  // 4. SAUVEGARDER OPTIONS
+  const saveOptions = async (newVacation?: boolean, newSong?: string) => {
+    if (!isMyProfile) return
+    await setDoc(
+      doc(db, 'users', userId!),
+      {
+        vacationMode: newVacation !== undefined ? newVacation : vacationMode,
+        spotifySong: newSong !== undefined ? newSong : spotifySong,
+      },
+      { merge: true }
+    )
+  }
+
+  if (loading || !userInfo) return <div className="p-10 text-center">Chargement...</div>
 
   return (
-    <div>
-      <div className="sticky top-0 bg-white/80 backdrop-blur-md p-2 flex items-center gap-4 z-10 border-b">
-        <ArrowLeft className="cursor-pointer" onClick={() => window.history.back()} />
+    <div className="bg-white min-h-screen pb-10">
+      {/* Header */}
+      <div className="sticky top-0 bg-white/90 backdrop-blur-md p-2 flex items-center gap-4 z-20 border-b">
+        <ArrowLeft
+          className="cursor-pointer p-2 hover:bg-gray-100 rounded-full"
+          onClick={() => navigate('/')}
+        />
         <div>
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            {profile.username}
-            {profile.vacationMode && <Palmtree size={16} className="text-orange-500" />}
+          <h2 className="font-bold text-lg flex items-center gap-2 leading-tight">
+            {userInfo.name}
+            {vacationMode && <Palmtree size={16} className="text-orange-500" />}
           </h2>
-          <p className="text-xs text-gray-500">{profile.tweets.length} tweets</p>
+          <p className="text-xs text-gray-500">{userTweets.length} posts</p>
         </div>
       </div>
 
-      <div className="h-48 bg-gray-200 relative">
-        {profile.vacationMode && (
-          <div className="absolute inset-0 bg-orange-100/50 flex items-center justify-center">
-            <span className="bg-orange-500 text-white px-4 py-1 rounded-full font-bold shadow-lg flex items-center gap-2">
-              <Palmtree size={18} /> En Mode Vacances
-            </span>
+      {/* Banner */}
+      <div className={`h-48 w-full relative ${vacationMode ? 'bg-orange-100' : 'bg-slate-200'}`}>
+        {vacationMode && (
+          <div className="absolute inset-0 flex items-center justify-center text-orange-600 font-bold text-xl gap-2">
+            <Palmtree /> EN MODE VACANCES <Palmtree />
           </div>
         )}
       </div>
 
-      <div className="px-4 flex justify-between items-start -mt-16 relative">
-        <div className="h-32 w-32 bg-blue-100 rounded-full border-4 border-white flex items-center justify-center text-4xl font-bold text-blue-500">
-          {profile.username[0].toUpperCase()}
-        </div>
+      {/* Avatar & Actions */}
+      <div className="px-4 flex justify-between items-start -mt-16 relative z-10">
+        <img
+          src={
+            userInfo.photo ||
+            'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+          }
+          className="h-32 w-32 rounded-full border-4 border-white bg-white object-cover"
+          alt="p"
+        />
 
-        {isMyProfile ? (
-          <button
-            onClick={toggleVacation}
-            className={`mt-20 px-4 py-2 rounded-full font-bold border transition ${
-              profile.vacationMode
-                ? 'bg-orange-100 text-orange-600 border-orange-200'
-                : 'hover:bg-gray-100'
-            }`}
-          >
-            {profile.vacationMode ? 'Désactiver Vacances' : 'Activer Mode Vacances'}
-          </button>
-        ) : (
-          <button className="mt-20 bg-black text-white px-4 py-2 rounded-full font-bold hover:bg-gray-800 transition">
-            Suivre
-          </button>
-        )}
+        <div className="mt-20 flex gap-2">
+          {isMyProfile ? (
+            <button
+              onClick={() => {
+                setVacationMode(!vacationMode)
+                saveOptions(!vacationMode, undefined)
+              }}
+              className={`px-4 py-2 rounded-full font-bold border transition text-sm ${
+                vacationMode
+                  ? 'bg-orange-500 text-white border-orange-500'
+                  : 'bg-white text-black border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {vacationMode ? 'Désactiver Vacances' : 'Activer Mode Vacances'}
+            </button>
+          ) : (
+            <>
+              {/* BOUTON MESSAGE */}
+              <button
+                onClick={startChat}
+                className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition"
+                title="Envoyer un message"
+              >
+                <Mail size={20} />
+              </button>
+              {/* BOUTON FOLLOW */}
+              <button
+                onClick={handleFollow}
+                className={`px-6 py-2 rounded-full font-bold transition ${
+                  isFollowing
+                    ? 'bg-white text-black border border-gray-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                    : 'bg-black text-white hover:bg-gray-800'
+                }`}
+              >
+                {isFollowing ? 'Abonné' : 'Suivre'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="px-4 mt-3">
-        <h1 className="font-bold text-xl">{profile.displayName || profile.username}</h1>
-        <p className="text-gray-500 text-sm">@{profile.username}</p>
-
-        {/* Spotify Widget (Bonus) */}
-        <div className="my-4 bg-green-50 p-3 rounded-xl border border-green-100 flex items-center gap-3 max-w-sm cursor-pointer hover:bg-green-100 transition">
-          <div className="bg-green-500 p-2 rounded-full text-white">
-            <Music size={20} />
-          </div>
-          <div>
-            <p className="text-xs text-green-700 font-bold uppercase tracking-wider">
-              En écoute sur Spotify
-            </p>
-            <p className="font-bold text-gray-900">Cheb Hasni - Matebkich</p>
-          </div>
+      {/* Info User */}
+      <div className="px-4 mt-3 space-y-3">
+        <div>
+          <h1 className="font-bold text-xl leading-none">{userInfo.name}</h1>
+          <p className="text-gray-500">@{userInfo.usernameSearch || 'user'}</p>
         </div>
 
-        <div className="flex gap-4 mt-3 text-gray-500 text-sm">
+        {/* Spotify Integration */}
+        <div className="p-3 bg-green-50 rounded-xl border border-green-200 max-w-sm">
+          <div className="flex items-center gap-2 text-green-700 font-bold mb-1 text-sm">
+            <Music size={16} /> En écoute sur Spotify
+          </div>
+          {isMyProfile && isEditingSpotify ? (
+            <div className="flex gap-2">
+              <input
+                value={spotifySong}
+                onChange={(e) => setSpotifySong(e.target.value)}
+                className="flex-1 p-1 text-sm border rounded outline-none focus:ring-1 focus:ring-green-500"
+                placeholder="Artiste - Titre"
+              />
+              <button
+                onClick={() => {
+                  setIsEditingSpotify(false)
+                  saveOptions(undefined, spotifySong)
+                }}
+                className="text-xs bg-green-600 text-white px-3 rounded font-bold"
+              >
+                OK
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-medium text-gray-800">{spotifySong || 'Aucune musique'}</p>
+              {isMyProfile && (
+                <button
+                  onClick={() => setIsEditingSpotify(true)}
+                  className="text-xs text-gray-400 hover:text-green-600 underline"
+                >
+                  Modifier
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-4 text-gray-500 text-sm">
           <div className="flex items-center gap-1">
             <MapPin size={16} /> Maroc
           </div>
           <div className="flex items-center gap-1">
-            <Calendar size={16} /> A rejoint il y a longtemps
+            <Calendar size={16} /> Membre actif
           </div>
         </div>
 
-        <div className="flex gap-4 mt-3">
-          <p>
-            <span className="font-bold text-black">{profile._count?.following || 0}</span>{' '}
-            <span className="text-gray-500">abonnements</span>
-          </p>
-          <p>
-            <span className="font-bold text-black">{profile._count?.followedBy || 0}</span>{' '}
-            <span className="text-gray-500">abonnés</span>
-          </p>
+        {/* Stats Abonnés */}
+        <div className="flex gap-4 text-sm">
+          <span className="text-black font-bold cursor-pointer hover:underline">
+            {followingCount} <span className="text-gray-500 font-normal">abonnements</span>
+          </span>
+          <span className="text-black font-bold cursor-pointer hover:underline">
+            {followersCount} <span className="text-gray-500 font-normal">abonnés</span>
+          </span>
         </div>
       </div>
 
-      {/* Tweets avec Vraie Date */}
-      <div className="mt-6 border-t">
-        {profile.tweets.map((t: any) => (
-          <div key={t.id} className="p-4 border-b hover:bg-gray-50">
-            <div className="flex justify-between">
-              <p className="font-bold text-sm text-gray-900">@{profile.username}</p>
-              <p className="text-xs text-gray-500">
-                {formatDistanceToNow(new Date(t.createdAt), { addSuffix: true, locale: fr })}
-              </p>
+      <div className="flex border-b mt-4">
+        <div className="flex-1 text-center p-3 hover:bg-gray-50 cursor-pointer font-bold border-b-4 border-blue-500">
+          Posts
+        </div>
+        <div className="flex-1 text-center p-3 hover:bg-gray-50 cursor-pointer text-gray-500">
+          Réponses
+        </div>
+        <div className="flex-1 text-center p-3 hover:bg-gray-50 cursor-pointer text-gray-500">
+          J'aime
+        </div>
+      </div>
+
+      {/* Tweets */}
+      <div>
+        {userTweets.map((t) => (
+          <div
+            key={t.id}
+            className="p-4 border-b hover:bg-gray-50 flex gap-3 cursor-pointer transition"
+            onClick={() => navigate(`/tweet/${t.id}`)}
+          >
+            <img
+              src={
+                userInfo.photo ||
+                'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+              }
+              className="h-10 w-10 rounded-full object-cover"
+              alt="av"
+            />
+            <div className="flex-1">
+              <div className="flex gap-1 items-center">
+                <span className="font-bold hover:underline">{userInfo.name}</span>
+                <span className="text-gray-500 text-sm">
+                  · {formatDistanceToNow(new Date(t.createdAt), { addSuffix: true, locale: fr })}
+                </span>
+              </div>
+              <p className="mt-1 text-gray-900 text-[15px]">{t.content}</p>
+              <div className="flex justify-between mt-3 text-gray-500 max-w-xs">
+                <MessageCircle size={18} />
+                <Repeat size={18} />
+                <Heart size={18} />
+                <Share size={18} />
+              </div>
             </div>
-            <p className="mt-1">{t.content}</p>
           </div>
         ))}
       </div>
