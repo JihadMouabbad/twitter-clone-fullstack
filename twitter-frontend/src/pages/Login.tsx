@@ -1,6 +1,8 @@
 import React from 'react'
-import { auth, googleProvider } from '../firebase'
+import { auth, googleProvider, db } from '../firebase'
 import { signInWithPopup } from 'firebase/auth'
+import { doc, setDoc } from 'firebase/firestore'
+import { DEFAULT_AVATAR } from './Profile'
 import { useNavigate } from 'react-router-dom'
 
 export const Login = () => {
@@ -8,7 +10,22 @@ export const Login = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider)
+      const result = await signInWithPopup(auth, googleProvider)
+      const user = result.user
+
+      // Sauvegarder / mettre à jour le profil dans Firestore
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          id: user.uid,
+          name: user.displayName,
+          email: user.email,
+          photo: user.photoURL || DEFAULT_AVATAR,
+          usernameSearch: user.displayName?.toLowerCase().trim(),
+        },
+        { merge: true }
+      )
+
       navigate('/')
     } catch (error) {
       console.error('Erreur Login:', error)

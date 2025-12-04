@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Hash, Bell, Mail, User, MoreHorizontal, Feather } from 'lucide-react'
+import { Home, Hash, Bell, Mail, User, MoreHorizontal } from 'lucide-react'
 import { auth } from '../firebase'
 
 export const Sidebar = () => {
@@ -33,8 +33,12 @@ export const Sidebar = () => {
         <div onClick={() => navigate('/')}>
           <MenuItem icon={<Home size={26} />} text="Accueil" active />
         </div>
-        <MenuItem icon={<Hash size={26} />} text="Explorer" />
-        <MenuItem icon={<Bell size={26} />} text="Notifications" />
+        <div onClick={() => navigate('/search')}>
+          <MenuItem icon={<Hash size={26} />} text="Search" />
+        </div>
+        <div onClick={() => navigate('/hashtags')}>
+          <MenuItem icon={<Bell size={26} />} text="Hashtags" />
+        </div>
 
         {/* Link Messages */}
         <div onClick={() => navigate('/messages')}>
@@ -48,8 +52,11 @@ export const Sidebar = () => {
 
         <MenuItem icon={<MoreHorizontal size={26} />} text="Plus" />
 
-        {/* Tweet Button */}
-        <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full w-full mt-4 shadow-lg transition">
+        {/* Tweet Button (inchangé visuellement, juste navigation vers l'accueil pour poster) */}
+        <button
+          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full w-full mt-4 shadow-lg transition"
+          onClick={() => navigate('/')}
+        >
           Poster
         </button>
       </div>
