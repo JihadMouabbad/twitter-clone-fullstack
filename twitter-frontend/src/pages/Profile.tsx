@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
-import { updateProfile } from 'firebase/auth'
 import {
   collection,
   query,
@@ -29,24 +28,6 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-// Catalogue d'avatars proposés (animaux style dessin animé)
-const AVATAR_CATALOG = [
-  'https://api.dicebear.com/9.x/bottts/svg?seed=cat',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=dog',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=lion',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=panda',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=fox',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=rabbit',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=koala',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=tiger',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=bear',
-  'https://api.dicebear.com/9.x/bottts/svg?seed=monkey',
-]
-
-// Silhouette noir & blanc par défaut si l'utilisateur n'a pas encore de photo
-export const DEFAULT_AVATAR =
-  'https://cdn-icons-png.flaticon.com/512/149/149071.png'
-
 export const Profile = () => {
   const { userId } = useParams()
   const navigate = useNavigate()
@@ -65,31 +46,9 @@ export const Profile = () => {
   const [spotifySong, setSpotifySong] = useState('')
   const [isEditingSpotify, setIsEditingSpotify] = useState(false)
   const [vacationMode, setVacationMode] = useState(false)
-  const [isChoosingAvatar, setIsChoosingAvatar] = useState(false)
 
   const currentUser = auth.currentUser
   const isMyProfile = currentUser?.uid === userId
-
-  // Changer la photo de profil à partir du catalogue
-  const handleAvatarSelect = async (avatarUrl: string) => {
-    if (!isMyProfile || !userId || !currentUser) return
-
-    // Sauvegarder dans Firestore
-    await setDoc(
-      doc(db, 'users', userId),
-      {
-        photo: avatarUrl,
-      },
-      { merge: true }
-    )
-
-    // Mettre à jour aussi le profil Auth pour garder la cohérence
-    await updateProfile(currentUser, {
-      photoURL: avatarUrl,
-    })
-
-    setIsChoosingAvatar(false)
-  }
 
   // 1. INIT & CHARGEMENT
   useEffect(() => {
@@ -249,21 +208,14 @@ export const Profile = () => {
 
       {/* Avatar & Actions */}
       <div className="px-4 flex justify-between items-start -mt-16 relative z-10">
-        <div className="relative">
-          <img
-            src={userInfo.photo || DEFAULT_AVATAR}
-            className="h-32 w-32 rounded-full border-4 border-white bg-white object-cover"
-            alt="p"
-          />
-          {isMyProfile && (
-            <button
-              onClick={() => setIsChoosingAvatar(true)}
-              className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full hover:bg-black transition"
-            >
-              Modifier
-            </button>
-          )}
-        </div>
+        <img
+          src={
+            userInfo.photo ||
+            'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+          }
+          className="h-32 w-32 rounded-full border-4 border-white bg-white object-cover"
+          alt="p"
+        />
 
         <div className="mt-20 flex gap-2">
           {isMyProfile ? (
@@ -392,7 +344,10 @@ export const Profile = () => {
             onClick={() => navigate(`/tweet/${t.id}`)}
           >
             <img
-              src={userInfo.photo || DEFAULT_AVATAR}
+              src={
+                userInfo.photo ||
+                'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+              }
               className="h-10 w-10 rounded-full object-cover"
               alt="av"
             />
@@ -414,41 +369,6 @@ export const Profile = () => {
           </div>
         ))}
       </div>
-
-      {/* Modal de choix d'avatar */}
-      {isMyProfile && isChoosingAvatar && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-lg">Choisir une photo de profil</h2>
-              <button
-                onClick={() => setIsChoosingAvatar(false)}
-                className="text-gray-500 hover:text-black text-sm"
-              >
-                Fermer
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">
-              Sélectionne un avatar dans le catalogue ci-dessous.
-            </p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-              {AVATAR_CATALOG.map((url) => (
-                <button
-                  key={url}
-                  onClick={() => handleAvatarSelect(url)}
-                  className="group rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <img
-                    src={url}
-                    alt="avatar"
-                    className="h-20 w-20 rounded-full object-cover border-2 border-transparent group-hover:border-blue-500 transition"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -21,14 +21,11 @@ import { Login } from './pages/Login'
 import { Profile } from './pages/Profile'
 import { TweetDetails } from './pages/TweetDetails'
 import { Messages } from './pages/Messages'
-import { Search } from './pages/Search'
-import { Hashtags } from './pages/Hashtags'
 import { NotificationToast } from './components/NotificationToast' // <-- NOUVEAU
 
 import { Heart, MessageCircle, Repeat, Share, LogOut } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { DEFAULT_AVATAR } from './pages/Profile'
 
 // ... (Garde ton composant Home tel quel, je ne le répète pas pour gagner de la place, il ne change pas)
 // ... COPIE TON COMPOSANT "Home" D'AVANT ICI ...
@@ -85,7 +82,7 @@ const Home = () => {
     await addDoc(collection(db, 'tweets'), {
       content: content,
       authorName: user.displayName,
-      authorPhoto: user.photoURL || DEFAULT_AVATAR,
+      authorPhoto: user.photoURL,
       authorId: user.uid,
       createdAt: new Date().toISOString(),
       likes: [],
@@ -109,7 +106,7 @@ const Home = () => {
     await addDoc(collection(db, 'tweets'), {
       content: t.content,
       authorName: user.displayName,
-      authorPhoto: user.photoURL || DEFAULT_AVATAR,
+      authorPhoto: user.photoURL,
       authorId: user.uid,
       createdAt: new Date().toISOString(),
       likes: [],
@@ -128,11 +125,7 @@ const Home = () => {
         </button>
       </div>
       <div className="p-4 border-b flex gap-3">
-        <img
-          src={user?.photoURL || DEFAULT_AVATAR}
-          className="h-10 w-10 rounded-full"
-          alt="moi"
-        />
+        <img src={user?.photoURL} className="h-10 w-10 rounded-full" alt="moi" />
         <div className="flex-1">
           <textarea
             value={content}
@@ -158,7 +151,10 @@ const Home = () => {
           className="p-4 border-b hover:bg-gray-50 flex gap-3 cursor-pointer transition"
         >
           <img
-            src={t.authorPhoto || DEFAULT_AVATAR}
+            src={
+              t.authorPhoto ||
+              'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+            }
             className="h-10 w-10 rounded-full hover:opacity-80"
             alt="avatar"
             onClick={(e) => {
@@ -238,9 +234,6 @@ function App() {
           <Route path="tweet/:id" element={<TweetDetails />} />
           <Route path="messages" element={<Messages />} />
           <Route path="messages/:chatId" element={<Messages />} />
-          <Route path="search" element={<Search />} />
-          <Route path="hashtags" element={<Hashtags />} />
-          <Route path="hashtags/:tag" element={<Hashtags />} />
         </Route>
       </Routes>
     </BrowserRouter>

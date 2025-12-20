@@ -5,7 +5,6 @@ import { doc, getDoc, collection, addDoc, query, orderBy, onSnapshot } from 'fir
 import { ArrowLeft, MessageCircle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { DEFAULT_AVATAR } from '../pages/Profile'
 
 export const TweetDetails = () => {
   const { id } = useParams()
@@ -67,7 +66,10 @@ export const TweetDetails = () => {
       <div className="p-4 border-b">
         <div className="flex gap-3 mb-2 items-center">
           <img
-            src={tweet.authorPhoto || DEFAULT_AVATAR}
+            src={
+              tweet.authorPhoto ||
+              'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+            }
             className="h-12 w-12 rounded-full"
             alt="avatar"
           />
@@ -95,11 +97,7 @@ export const TweetDetails = () => {
 
       {/* Zone Input Réponse */}
       <div className="p-4 border-b flex gap-3">
-        <img
-          src={auth.currentUser?.photoURL || DEFAULT_AVATAR}
-          className="h-10 w-10 rounded-full"
-          alt="me"
-        />
+        <img src={auth.currentUser?.photoURL || ''} className="h-10 w-10 rounded-full" alt="me" />
         <div className="flex-1">
           <input
             type="text"
@@ -123,7 +121,10 @@ export const TweetDetails = () => {
       {replies.map((r) => (
         <div key={r.id} className="p-4 border-b hover:bg-gray-50 flex gap-3">
           <img
-            src={r.authorPhoto || DEFAULT_AVATAR}
+            src={
+              r.authorPhoto ||
+              'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'
+            }
             className="h-10 w-10 rounded-full"
             alt="avatar"
           />
