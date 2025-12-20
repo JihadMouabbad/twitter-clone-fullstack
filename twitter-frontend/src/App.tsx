@@ -11,6 +11,7 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
+  setDoc, // Added setDoc
 } from 'firebase/firestore'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth, db } from './firebase'
@@ -21,9 +22,13 @@ import { Login } from './pages/Login'
 import { Profile } from './pages/Profile'
 import { TweetDetails } from './pages/TweetDetails'
 import { Messages } from './pages/Messages'
+import { Explore } from './pages/Explore'
+import { Notifications } from './pages/Notifications'
+import { Bookmarks } from './pages/Bookmarks'
+import { SearchUsers } from './pages/SearchUsers'
 import { NotificationToast } from './components/NotificationToast' // <-- NOUVEAU
 
-import { Heart, MessageCircle, Repeat, Share, LogOut } from 'lucide-react'
+import { Heart, MessageCircle, Repeat, Share, LogOut, Bookmark } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -50,7 +55,7 @@ const RichText = ({ text }: { text: string }) => {
       )}
     </span>
   )
-} 
+}
 
 const Home = () => {
   // ... (Ton code Home existant)
@@ -97,6 +102,21 @@ const Home = () => {
     await updateDoc(tweetRef, {
       likes: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid),
     })
+
+    // NOTIFICATION (Only if not liking own tweet and it's a new like)
+    if (!isLiked && tweet.authorId !== user.uid) {
+      await addDoc(collection(db, 'notifications'), {
+        type: 'like',
+        fromUserId: user.uid,
+        fromUserName: user.displayName,
+        fromUserPhoto: user.photoURL,
+        toUserId: tweet.authorId,
+        tweetId: tweet.id,
+        tweetContent: tweet.content,
+        createdAt: new Date(),
+        read: false
+      })
+    }
   }
 
   const handleRetweet = async (t: any) => {
@@ -114,6 +134,30 @@ const Home = () => {
       isRetweet: true,
       originalAuthor: t.authorName,
     })
+
+    // NOTIFICATION (Retweet)
+    if (t.authorId !== user.uid) {
+      await addDoc(collection(db, 'notifications'), {
+        type: 'retweet',
+        fromUserId: user.uid,
+        fromUserName: user.displayName,
+        fromUserPhoto: user.photoURL,
+        toUserId: t.authorId,
+        tweetId: t.id,
+        tweetContent: t.content,
+        createdAt: new Date(),
+        read: false
+      })
+    }
+  }
+
+  const handleBookmark = async (t: any) => {
+    if (!user) return
+    const bookmarkRef = doc(db, 'users', user.uid, 'bookmarks', t.id)
+    await setDoc(bookmarkRef, {
+      savedAt: new Date()
+    }, { merge: true })
+    alert("Tweet sauvegardé !")
   }
 
   return (
@@ -202,15 +246,23 @@ const Home = () => {
                   e.stopPropagation()
                   handleLike(t)
                 }}
-                className={`flex gap-1 items-center group ${
-                  t.likes?.includes(user?.uid) ? 'text-red-500' : 'hover:text-red-500'
-                }`}
+                className={`flex gap-1 items-center group ${t.likes?.includes(user?.uid) ? 'text-red-500' : 'hover:text-red-500'
+                  }`}
               >
                 <Heart size={18} className={t.likes?.includes(user?.uid) ? 'fill-red-500' : ''} />
                 <span className="text-xs">{t.likes?.length || 0}</span>
               </button>
               <button className="hover:text-blue-500">
                 <Share size={18} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleBookmark(t)
+                }}
+                className="hover:text-blue-500"
+              >
+                <Bookmark size={18} />
               </button>
             </div>
           </div>
@@ -231,6 +283,10 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="profile/:userId" element={<Profile />} />
+          <Route path="explore" element={<Explore />} />
+          <Route path="search" element={<SearchUsers />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="bookmarks" element={<Bookmarks />} />
           <Route path="tweet/:id" element={<TweetDetails />} />
           <Route path="messages" element={<Messages />} />
           <Route path="messages/:chatId" element={<Messages />} />

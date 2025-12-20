@@ -25,6 +25,7 @@ import {
   Share,
   Mail,
 } from 'lucide-react'
+import { EditProfileModal } from '../components/EditProfileModal'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -47,6 +48,9 @@ export const Profile = () => {
   const [isEditingSpotify, setIsEditingSpotify] = useState(false)
   const [vacationMode, setVacationMode] = useState(false)
 
+  // Modal State
+  const [showEditModal, setShowEditModal] = useState(false)
+
   const currentUser = auth.currentUser
   const isMyProfile = currentUser?.uid === userId
 
@@ -66,6 +70,40 @@ export const Profile = () => {
         },
         { merge: true }
       )
+    }
+
+    // MOCK DATA CHECK
+    const MOCK_PROFILES: any = {
+      'simba': {
+        name: 'Simba le Chat',
+        usernameSearch: 'king_simba',
+        bio: 'Roi de la savane... euh du salon. 🦁😼',
+        photo: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400&h=400&fit=crop',
+        spotifySong: 'Circle of Life - Elton John'
+      },
+      'rex': {
+        name: 'Rex le Chien',
+        usernameSearch: 'rex_officiel',
+        bio: 'Bon chien. Le meilleur chien. 🐶🦴',
+        photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&h=400&fit=crop',
+        spotifySong: 'Who Let The Dogs Out'
+      },
+      'coco': {
+        name: 'Coco Perroquet',
+        usernameSearch: 'coco_talks',
+        bio: 'Je répète tout, attention ! 🦜',
+        photo: 'https://images.unsplash.com/photo-1552728089-57bdde30ebd1?w=400&h=400&fit=crop',
+        spotifySong: 'I Believe I Can Fly'
+      }
+    }
+
+    if (userId && MOCK_PROFILES[userId]) {
+      setUserInfo(MOCK_PROFILES[userId])
+      setSpotifySong(MOCK_PROFILES[userId].spotifySong)
+      setLoading(false)
+      // Mock tweets too? Maybe not strictly necessary but nice.
+      // Let's just return to avoid Firestore onSnapshot error on fake ID
+      return
     }
 
     // B. Écouter Info User
@@ -142,6 +180,17 @@ export const Profile = () => {
         timestamp: new Date(),
       })
       setIsFollowing(true)
+
+      // NOTIFICATION (Follow)
+      await addDoc(collection(db, 'notifications'), {
+        type: 'follow',
+        fromUserId: currentUser.uid,
+        fromUserName: currentUser.displayName,
+        fromUserPhoto: currentUser.photoURL,
+        toUserId: userId,
+        createdAt: new Date(),
+        read: false
+      })
     }
   }
 
@@ -219,19 +268,26 @@ export const Profile = () => {
 
         <div className="mt-20 flex gap-2">
           {isMyProfile ? (
-            <button
-              onClick={() => {
-                setVacationMode(!vacationMode)
-                saveOptions(!vacationMode, undefined)
-              }}
-              className={`px-4 py-2 rounded-full font-bold border transition text-sm ${
-                vacationMode
+            <>
+              <button
+                onClick={() => {
+                  setVacationMode(!vacationMode)
+                  saveOptions(!vacationMode, undefined)
+                }}
+                className={`px-4 py-2 rounded-full font-bold border transition text-sm ${vacationMode
                   ? 'bg-orange-500 text-white border-orange-500'
                   : 'bg-white text-black border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {vacationMode ? 'Désactiver Vacances' : 'Activer Mode Vacances'}
-            </button>
+                  }`}
+              >
+                {vacationMode ? 'Désactiver Vacances' : 'Activer Mode Vacances'}
+              </button>
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="px-4 py-2 rounded-full font-bold border border-gray-300 hover:bg-gray-50 transition text-sm"
+              >
+                Éditer le profil
+              </button>
+            </>
           ) : (
             <>
               {/* BOUTON MESSAGE */}
@@ -245,11 +301,10 @@ export const Profile = () => {
               {/* BOUTON FOLLOW */}
               <button
                 onClick={handleFollow}
-                className={`px-6 py-2 rounded-full font-bold transition ${
-                  isFollowing
-                    ? 'bg-white text-black border border-gray-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
+                className={`px-6 py-2 rounded-full font-bold transition ${isFollowing
+                  ? 'bg-white text-black border border-gray-300 hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                  : 'bg-black text-white hover:bg-gray-800'
+                  }`}
               >
                 {isFollowing ? 'Abonné' : 'Suivre'}
               </button>
@@ -263,6 +318,7 @@ export const Profile = () => {
         <div>
           <h1 className="font-bold text-xl leading-none">{userInfo.name}</h1>
           <p className="text-gray-500">@{userInfo.usernameSearch || 'user'}</p>
+          {userInfo.bio && <p className="text-gray-900 mt-2">{userInfo.bio}</p>}
         </div>
 
         {/* Spotify Integration */}
@@ -368,6 +424,13 @@ export const Profile = () => {
             </div>
           </div>
         ))}
+        {/* Modal Integration */}
+        {showEditModal && (
+          <EditProfileModal
+            user={userInfo}
+            onClose={() => setShowEditModal(false)}
+          />
+        )}
       </div>
     </div>
   )
