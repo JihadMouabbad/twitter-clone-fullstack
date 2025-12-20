@@ -7,7 +7,7 @@ export const Layout = () => {
   return (
     <div className="flex justify-center min-h-screen bg-white max-w-7xl mx-auto">
       <Sidebar />
-      <div className="w-1/2 border-r border-gray-100 min-h-screen pb-20">
+      <div className="flex-1 border-r border-gray-100 min-h-screen pb-20">
         <Outlet />
       </div>
       <RightSection />

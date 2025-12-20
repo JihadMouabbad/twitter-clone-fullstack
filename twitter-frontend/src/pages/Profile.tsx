@@ -205,6 +205,7 @@ export const Profile = () => {
       {
         users: [currentUser.uid, userId],
         userNames: [currentUser.displayName, userInfo.name],
+        userPhotos: [currentUser.photoURL, userInfo.photo],
         lastMessage: 'Nouvelle conversation',
         timestamp: new Date(),
       },

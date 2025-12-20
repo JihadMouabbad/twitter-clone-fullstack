@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { db, auth } from '../firebase'
 import {
@@ -30,6 +30,23 @@ export const Messages = () => {
   const [showAddMember, setShowAddMember] = useState(false)
   const [memberSearch, setMemberSearch] = useState('')
   const [replyTo, setReplyTo] = useState<any>(null)
+
+  // Auto-scroll logic
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      const { scrollHeight, clientHeight } = messagesContainerRef.current
+      messagesContainerRef.current.scrollTo({
+        top: scrollHeight - clientHeight,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   // 1. Charger Conversations
   useEffect(() => {
@@ -210,21 +227,30 @@ export const Messages = () => {
             const displayName = isGroup
               ? chat.groupName
               : chat.userNames?.find((n: string) => n !== currentUser?.displayName) || 'Utilisateur'
+            const otherUserIndex = chat.users?.findIndex((uid: string) => uid !== currentUser?.uid)
+            const displayPhoto = !isGroup && otherUserIndex !== -1 && chat.userPhotos && chat.userPhotos[otherUserIndex]
+              ? chat.userPhotos[otherUserIndex]
+              : null
+
             return (
               <div
                 key={chat.id}
                 onClick={() => navigate(`/messages/${chat.id}`)}
-                className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${
-                  chatId === chat.id ? 'bg-blue-50' : ''
-                }`}
+                className={`p-4 border-b hover:bg-gray-50 cursor-pointer ${chatId === chat.id ? 'bg-blue-50' : ''
+                  }`}
               >
                 <div className="font-bold flex items-center gap-2">
-                  <div
-                    className={`p-2 rounded-full ${
-                      isGroup ? 'bg-orange-100 text-orange-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    {isGroup ? <Users size={16} /> : <User size={16} />}
+                  <div className="shrink-0">
+                    {displayPhoto ? (
+                      <img src={displayPhoto} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <div
+                        className={`p-2 rounded-full w-10 h-10 flex items-center justify-center ${isGroup ? 'bg-orange-100 text-orange-600' : 'bg-gray-200'
+                          }`}
+                      >
+                        {isGroup ? <Users size={16} /> : <User size={16} />}
+                      </div>
+                    )}
                   </div>
                   {displayName}
                 </div>
@@ -277,7 +303,10 @@ export const Messages = () => {
             </div>
 
             {/* Messages List */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-white">
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 p-4 overflow-y-auto space-y-3 bg-white"
+            >
               {messages.map((msg) => {
                 const isMe = msg.senderId === currentUser?.uid
                 return (
@@ -287,9 +316,8 @@ export const Messages = () => {
                   >
                     {!isMe && <span className="text-xs text-gray-500 ml-2">{msg.senderName}</span>}
                     <div
-                      className={`max-w-xs p-3 rounded-2xl ${
-                        isMe ? 'bg-blue-500 text-white' : 'bg-gray-100'
-                      }`}
+                      className={`max-w-xs p-3 rounded-2xl ${isMe ? 'bg-blue-500 text-white' : 'bg-gray-100'
+                        }`}
                     >
                       {msg.replyToText && (
                         <div className="text-xs opacity-75 border-l-2 pl-2 mb-1">

@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth, db } from './firebase'
+import { LayoutProvider } from './context/LayoutContext'
 
 // Imports
 import { Layout } from './components/Layout'
@@ -27,6 +28,7 @@ import { Notifications } from './pages/Notifications'
 import { Bookmarks } from './pages/Bookmarks'
 import { SearchUsers } from './pages/SearchUsers'
 import { NotificationToast } from './components/NotificationToast' // <-- NOUVEAU
+import { ComposeTweetModal } from './components/ComposeTweetModal'
 
 import { Heart, MessageCircle, Repeat, Share, LogOut, Bookmark } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -274,25 +276,28 @@ const Home = () => {
 
 function App() {
   return (
-    <BrowserRouter>
-      {/* Ajout des Notifications Globales */}
-      <NotificationToast />
+    <LayoutProvider>
+      <BrowserRouter>
+        {/* Ajout des Notifications Globales */}
+        <NotificationToast />
+        <ComposeTweetModal />
 
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="profile/:userId" element={<Profile />} />
-          <Route path="explore" element={<Explore />} />
-          <Route path="search" element={<SearchUsers />} />
-          <Route path="notifications" element={<Notifications />} />
-          <Route path="bookmarks" element={<Bookmarks />} />
-          <Route path="tweet/:id" element={<TweetDetails />} />
-          <Route path="messages" element={<Messages />} />
-          <Route path="messages/:chatId" element={<Messages />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="profile/:userId" element={<Profile />} />
+            <Route path="explore" element={<Explore />} />
+            <Route path="search" element={<SearchUsers />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="bookmarks" element={<Bookmarks />} />
+            <Route path="tweet/:id" element={<TweetDetails />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="messages/:chatId" element={<Messages />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </LayoutProvider>
   )
 }
 

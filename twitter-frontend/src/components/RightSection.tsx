@@ -1,9 +1,14 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Music } from 'lucide-react'
+import { useLayout } from '../context/LayoutContext'
 
 export const RightSection = () => {
   const navigate = useNavigate()
+  const { showRightSection } = useLayout()
+
+  if (!showRightSection) return null;
+
   return (
     <div className="w-1/4 hidden lg:block px-6 py-2 space-y-4">
       <div className="sticky top-2 bg-white pt-2 z-10">
